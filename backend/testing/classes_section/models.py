@@ -1,101 +1,94 @@
 from django.db import models
 from campus.models import Campus
-from teachers.models import TeacherRole
+from teachers.models import Teacher
+from students.models import Student
 
 
-# ===================== Grade (Class + Section) =====================
+# --- Grade Model ---
 class Grade(models.Model):
-    # Basic Information
-    name = models.CharField(max_length=50, help_text="Class/Grade name e.g. Grade 3, O-Level")
-    section = models.CharField(max_length=20, help_text="Section name e.g. A, B, C")
+    GRADE_CHOICES = [
+        ("Nursery", "Nursery"),
+        ("KG1", "KG1"),
+        ("KG2", "KG2"),
+        ("1", "Grade 1"),
+        ("2", "Grade 2"),
+        ("3", "Grade 3"),
+        ("4", "Grade 4"),
+        ("5", "Grade 5"),
+        ("6", "Grade 6"),
+        ("7", "Grade 7"),
+        ("8", "Grade 8"),
+        ("9", "Grade 9"),
+        ("10", "Grade 10"),
+    ]
+
+    name = models.CharField(max_length=20, choices=GRADE_CHOICES)
     campus = models.ForeignKey(
-        Campus, on_delete=models.CASCADE, related_name="grades"
+        Campus,
+        on_delete=models.CASCADE,
+        related_name="grades"
     )
+    capacity = models.PositiveIntegerField(default=0)
 
-    # Class Type (Regular, Prep, Montessori, etc.)
-    category = models.CharField(
-        max_length=50,
-        choices=[
-            ("Regular", "Regular"),
-            ("Prep", "Prep"),
-            ("Montessori", "Montessori"),
-            ("Other", "Other"),
-        ],
-        default="Regular",
-        help_text="Type of class (Regular, Prep, Montessori, etc.)"
+    class Meta:
+        unique_together = ("name", "campus")  # Prevent duplicate Grade per Campus
+        ordering = ["campus", "name"]
+
+    def __str__(self):
+        return f"{self.name} - {self.campus.campus_name}"
+
+
+# --- Section Model ---
+class Section(models.Model):
+    name = models.CharField(max_length=5)  # e.g., A, B, C
+    grade = models.ForeignKey(
+        Grade,
+        on_delete=models.CASCADE,
+        related_name="sections"
     )
-
-    # Combined Classes
-    is_combined = models.BooleanField(default=False, help_text="Is this a combined class?")
-    combined_with = models.CharField(
-        max_length=50,
-        blank=True,
-        null=True,
-        help_text="If combined, mention with which grade e.g. Class 5"
-    )
-
-    # Class Teacher
-    class_teacher = models.ForeignKey(
-        TeacherRole,
+    class_teacher = models.OneToOneField(  # one teacher → one section
+        Teacher,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        help_text="Assign a class teacher"
+        related_name="class_section"
     )
-
-    # Capacity / Strength
-    capacity = models.PositiveIntegerField(default=30, help_text="Maximum number of students allowed")
-    enrolled_students = models.PositiveIntegerField(default=0, help_text="Current enrolled students")
-    total_boys = models.PositiveIntegerField(default=0, help_text="Number of boys in this class")
-    total_girls = models.PositiveIntegerField(default=0, help_text="Number of girls in this class")
-    avg_class_size = models.PositiveIntegerField(default=0, help_text="Average number of students in this section")
-
-    # Academic Details
-    subjects = models.TextField(
+    capacity = models.PositiveIntegerField(default=30)
+    students = models.ManyToManyField(
+        Student,
         blank=True,
-        null=True,
-        help_text="Comma separated list of subjects offered in this class"
+        related_name="sections",
+        help_text="Students enrolled in this section"
     )
-    medium_of_instruction = models.CharField(
-        max_length=50,
-        choices=[
-            ("English", "English"),
-            ("Urdu", "Urdu"),
-            ("Bilingual", "Bilingual"),
-        ],
-        default="English"
-    )
-    academic_year_start = models.DateField(blank=True, null=True)
-    academic_year_end = models.DateField(blank=True, null=True)
-
-    # Campus Mapping
-    room_number = models.CharField(max_length=20, blank=True, null=True)
-
-    # Administrative Info
-    status = models.CharField(
-        max_length=20,
-        choices=[
-            ("Active", "Active"),
-            ("Inactive", "Inactive"),
-            ("Temporary Closed", "Temporary Closed"),
-        ],
-        default="Active"
-    )
-    governing_body = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        help_text="e.g. Matric, Cambridge, IB"
-    )
-
-    # Extra notes
-    description = models.TextField(blank=True, null=True, help_text="Optional notes about the section")
-
-    def __str__(self):
-        return f"{self.name} - {self.section} ({self.campus.name})"
 
     class Meta:
-        unique_together = ("name", "section", "campus")
-        ordering = ["name", "section"]
-        verbose_name = "Class / Section"
-        verbose_name_plural = "Classes / Sections"
+        unique_together = ("name", "grade")  # Prevent duplicate A/B per Grade
+        ordering = ["grade", "name"]
+
+    def __str__(self):
+        return f"{self.grade.name} - {self.name} ({self.grade.campus.campus_name})"
+
+    def add_student(self, student):
+        """ Assign student if not already in another section of same grade """
+        if self.students.filter(id=student.id).exists():
+            return False  # Already in this section
+        if Section.objects.filter(grade=self.grade, students=student).exists():
+            return False  # Already assigned to another section of this grade
+        if self.students.count() >= self.capacity:
+            return False  # Section full
+        self.students.add(student)
+        return True
+
+
+# --- ClassRoom Model (optional physical room) ---
+class ClassRoom(models.Model):
+    name = models.CharField(max_length=50)  # e.g., Room 101
+    section = models.OneToOneField(
+        Section,
+        on_delete=models.CASCADE,
+        related_name="classroom"
+    )
+    capacity = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return f"{self.name} - {self.section}"

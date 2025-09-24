@@ -15,7 +15,8 @@ class CampusCountsType(graphene.ObjectType):
     total = graphene.Int()
     active = graphene.Int()
     inactive = graphene.Int()
-    temporary_closed = graphene.Int()
+    closed = graphene.Int()
+    under_construction = graphene.Int()
 
 
 # ========== QUERIES ==========
@@ -42,7 +43,7 @@ class Query(graphene.ObjectType):
         if status:
             qs = qs.filter(status=status)
         if search:
-            qs = qs.filter(name__icontains=search)
+            qs = qs.filter(campus_name__icontains=search)
 
         return qs.order_by("id")[offset: offset + limit]
 
@@ -58,37 +59,40 @@ class Query(graphene.ObjectType):
             total=qs.count(),
             active=qs.filter(status="active").count(),
             inactive=qs.filter(status="inactive").count(),
-            temporary_closed=qs.filter(status="temporary_closed").count(),
+            closed=qs.filter(status="closed").count(),
+            under_construction=qs.filter(status="under_construction").count(),
         )
 
 
 # ========== MUTATIONS ==========
 class CreateCampus(graphene.Mutation):
     class Arguments:
-        name = graphene.String(required=True)
-        code = graphene.String(required=True)
+        campus_name = graphene.String(required=True)
+        campus_code = graphene.String(required=True)
         address = graphene.String(required=True)
-        grades_offered = graphene.String(required=True)
         languages_of_instruction = graphene.String(required=True)
         academic_year_start = graphene.types.datetime.Date(required=True)
         academic_year_end = graphene.types.datetime.Date(required=True)
-        capacity = graphene.Int(required=True)
+        student_capacity = graphene.Int(required=True)
 
     campus = graphene.Field(CampusType)
 
     @classmethod
-    def mutate(cls, root, info, name, code, address,
-               grades_offered, languages_of_instruction,
-               academic_year_start, academic_year_end, capacity):
+    def mutate(
+        cls, root, info,
+        campus_name, campus_code, address,
+        languages_of_instruction,
+        academic_year_start, academic_year_end,
+        student_capacity
+    ):
         campus = Campus(
-            name=name,
-            code=code,
+            campus_name=campus_name,
+            campus_code=campus_code,
             address=address,
-            grades_offered=grades_offered,
             languages_of_instruction=languages_of_instruction,
             academic_year_start=academic_year_start,
             academic_year_end=academic_year_end,
-            capacity=capacity,
+            student_capacity=student_capacity,
         )
         campus.save()
         return CreateCampus(campus=campus)
@@ -97,9 +101,9 @@ class CreateCampus(graphene.Mutation):
 class UpdateCampus(graphene.Mutation):
     class Arguments:
         id = graphene.ID(required=True)
-        name = graphene.String(required=False)
+        campus_name = graphene.String(required=False)
         status = graphene.String(required=False)
-        capacity = graphene.Int(required=False)
+        student_capacity = graphene.Int(required=False)
 
     campus = graphene.Field(CampusType)
 

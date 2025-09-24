@@ -1,7 +1,7 @@
 from rest_framework import viewsets
-from .models import Attendance
-from .serializers import AttendanceSerializer
+from .models import AttendanceRecord
+from .serializers import AttendanceRecordSerializer
 
-class AttendanceViewSet(viewsets.ModelViewSet):
-    queryset = Attendance.objects.all()
-    serializer_class = AttendanceSerializer
+class AttendanceRecordViewSet(viewsets.ModelViewSet):
+    queryset = AttendanceRecord.objects.all()
+    serializer_class = AttendanceRecordSerializer

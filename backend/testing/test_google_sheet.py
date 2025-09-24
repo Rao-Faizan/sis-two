@@ -61,7 +61,7 @@ for row in records:
             continue
 
         try:
-            campus_obj = Campus.objects.get(name__iexact=campus_name.strip())
+            campus_obj = Campus.objects.get(campus_name__iexact=campus_name.strip())
         except Campus.DoesNotExist:
             print(f"⚠️ Skipped {row.get('Name')} | Campus '{campus_name}' not found")
             continue
@@ -105,9 +105,8 @@ for row in records:
             old_gr_no=row.get("Old GR No"),
             is_draft=False,
         )
-        print(f"✅ Added: {student.name} → {campus_obj.name}")
+        print(f"✅ Added: {student.name} → {campus_obj.campus_name}")
     except Exception as e:
         print(f"❌ Error adding student: {row.get('Name') or row.get('Student Name')} | {e}")
 
 print("🎉 Import completed (GR No skipped)!")
-
